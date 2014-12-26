@@ -1,0 +1,17 @@
+' Gambas class file
+
+
+Public id As String
+Public internalID As Integer
+Public center As String
+Public radius As String
+Public symbol As New Collection
+Public shapestyle As String
+Public type As String
+
+Public Sub _new()
+  
+  type = "polygon"
+  
+End
+

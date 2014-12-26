@@ -1,0 +1,309 @@
+' Gambas class file
+
+Private $aCommands As String[]
+Private $hImage As Image
+Private $sEngine As String
+
+Private $sInitCommands As String
+Private $sTotalCommands As String
+Private $sOpCommands As String
+Private $iAgentCount As Integer
+
+Private $aObjects As New Collection
+Private $cTable As New Collection
+Private $cElement As New Collection
+
+Private Sub initiateEngine()
+  
+  Select $sEngine
+    Case "vtkPython"
+      $sInitCommands = ""
+      $sInitCommands = $sInitCommands & "import vtk" & Chr(10)                                               ' vtk added
+      $sInitCommands = $sInitCommands & "renderer = vtk.vtkRenderer()" & Chr(10)                             ' renderer added
+      $sInitCommands = $sInitCommands & "renderWindow = vtk.vtkRenderWindow()" & Chr(10)                     ' window added
+      $sInitCommands = $sInitCommands & "renderWindow.AddRenderer(renderer)" & Chr(10)                       ' renderer attached
+      $sInitCommands = $sInitCommands & "renderWindowInteractor = vtk.vtkRenderWindowInteractor()" & Chr(10) ' interactor added
+      $sInitCommands = $sInitCommands & "renderWindowInteractor.SetRenderWindow(renderWindow)" & Chr(10)     ' interactor connected to a windows
+      $sInitCommands = $sInitCommands & "axes = vtk.vtkAxesActor()" & Chr(10)                                ' axes created
+      $sInitCommands = $sInitCommands & "renderer.AddActor(axes)" & Chr(10)                                   ' axes added
+      $sOpCommands = $sInitCommands
+     
+  End Select
+  
+End
+
+
+Private Sub insertPolygon(op As String[])
+  
+  
+   Select $sEngine
+     Case "vtkPython"
+       $sOpCommands = $sOpCommands & "polygonSource" & Str($iAgentCount) & " = vtk.vtkRegularPolygonSource()" & Chr(10)
+       $sOpCommands = $sOpCommands & "polygonSource" & Str($iAgentCount) & ".SetNumberOfSides(" & op[1] & ")" & Chr(10)
+       $sOpCommands = $sOpCommands & "polygonSource" & Str($iAgentCount) & ".SetRadius(" & op[2] & ")" & Chr(10)
+       $sOpCommands = $sOpCommands & "polygonSource" & Str($iAgentCount) & ".SetCenter(" & op[3] & ")" & Chr(10)
+       $sOpCommands = $sOpCommands & "polygonSource" & Str($iAgentCount) & ".Update()" & Chr(10)
+       $sOpCommands = $sOpCommands & "mapper" & Str($iAgentCount) & "= vtk.vtkPolyDataMapper()" & Chr(10)
+       $sOpCommands = $sOpCommands & "mapper" & Str($iAgentCount) & ".SetInputConnection(polygonSource" & Str($iAgentCount) & ".GetOutputPort())" & Chr(10)
+       $sOpCommands = $sOpCommands & "actor" & Str($iAgentCount) & " = vtk.vtkActor()" & Chr(10)
+       $sOpCommands = $sOpCommands & "actor" & Str($iAgentCount) & ".SetMapper(mapper" & Str($iAgentCount) & ")" & Chr(10)
+       $sOpCommands = $sOpCommands & "renderer.AddActor(actor" & Str($iAgentCount) & ")" & Chr(10)
+
+   End Select
+    ''Message($sOpCommands)
+   
+End
+
+
+Private Sub finalizeEngine()
+ 
+  $sTotalCommands = $sOpCommands
+  
+  
+   Select $sEngine
+      Case "vtkPython"
+        $sTotalCommands = $sTotalCommands & "renderer.ResetCamera()" & Chr(10)
+        $sTotalCommands = $sTotalCommands & "renderWindow.Render()" & Chr(10)
+        $sTotalCommands = $sTotalCommands & "renderWindowInteractor.Start()" & Chr(10)
+
+   End Select
+  File.Save("/tmp/Temp.py", "")
+  File.Save("/tmp/Temp.py", $sTotalCommands)
+
+End
+
+
+
+Private Sub evaluateSQL(R As Variant, C As String) As Boolean
+  Dim cArr As String[]
+  Dim cElem As Collection
+  
+  cArr = Split(C, " ", "()", True, False)
+  ''Message(cArr[0])
+  Select cArr[1]
+    Case "="
+      For Each cElem In $cTable
+        If cElem.Exist(cArr[0]) Then
+          ''Message(cElem[cArr[0]])
+          
+          If cElem[cArr[0]] = cArr[2] Then
+            Return True
+          Endif
+        Endif
+      Next
+  End Select
+  
+  Return False
+End
+
+
+
+Private Sub RenderSymbols(id As String)
+  
+  Dim sTargetType As String
+  Dim sSymbolType As String
+  Dim sSymbolCommand As String
+  Dim aSymbolAttributes As String[]
+  Dim sSymbolAttribute As String
+  
+  Dim sSymbolStyle As String
+  
+  For Each sSymbolCommand In $aObjects[id].symbol
+    'strip off the whitespace
+    sSymbolCommand = Trim(sSymbolCommand)
+    'strip off the brackets
+    sSymbolAttribute = Mid(sSymbolCommand, 2, -1)
+    aSymbolAttributes = Split(sSymbolAttribute, ";", "()", True, True)
+    
+    sSymbolStyle = getValue("style", aSymbolAttributes)
+    Select sSymbolStyle
+      Case "fill"
+        
+        Select $sEngine 
+          Case "vtkPython"
+            $sOpCommands = $sOpCommands & "actor" & id & ".GetProperty().SetColor(" & getValue("color", aSymbolAttributes) & ")" & Chr(10)
+        End Select
+        
+    End Select
+    
+  Next
+  
+End
+
+
+
+Private Sub getRegionID(whereC As String, regionAr As Collection) As Integer
+  
+  Dim region As Variant
+  Dim aConds As String[]
+  Dim sCond As String
+  Dim bTestR As Boolean
+  Dim i As Integer
+  Dim m As Integer
+  
+  
+  ' split the where conditions
+  aConds = Split(whereC, ";", "()", True, False)
+  
+  For Each region In regionAr
+    bTestR = True
+    
+    For Each sCond In aConds
+      ''Message(sCond)
+      bTestR = bTestR And evaluateSQL(region, sCond)
+    Next
+    
+    If bTestR Then
+      Return regionAr.Key
+    Endif
+  Next
+  
+  Return -999
+End
+
+
+
+Public Sub _new()
+$iAgentCount = 0
+End
+
+Public Sub Form_Open()
+
+End
+
+
+Public Sub getValue(ofKey As String, fromArray As String[]) As String
+
+  Dim pair As String
+  Dim keyval As String[]
+  
+  
+  For Each pair In fromArray
+
+    pair = Trim(pair)
+    keyval = Split(pair, ":", "()", True, True)
+    If keyval.Length = 1 Then
+      Continue
+    Endif
+   
+    If Trim(keyval[0]) = ofKey Then
+      Return Trim(keyval[1])
+    Endif
+  Next
+  
+End
+
+
+Public Sub btnExec_Click()
+
+  Dim sCommand As String
+  Dim aOperands As String[]
+  Dim sOperation As String
+  
+  
+  Dim p As New Polygon
+  Dim atr As New String[]
+  
+  Dim sSymbolTarget As String
+  Dim sSymbol As String
+  Dim sSymbolID As String
+  Dim sTargetID As String
+  
+ 
+  $aCommands = Split(TextArea1.Text, Chr(10), "'", True, True)
+  
+  For Each sCommand In $aCommands
+    aOperands = Split(sCommand, ";", "()", True, True)
+    sOperation = aOperands[0]
+    aOperands.Remove(0)
+    
+    Select sOperation
+      Case "SetGraphicsEngine" 
+        $sEngine = Trim(aOperands[0])                             ' graphice engine set
+        initiateEngine()
+
+      Case "AddRegion"                                            ' primitive ; key-value pairs, semicolon separated
+        Select Trim(aOperands[0])
+          Case "Polygon" 
+            Select $sEngine
+              Case "vtkPython"
+                $iAgentCount = $iAgentCount + 1
+                ' access the attributes
+                ' and
+                ' fill in the polygon attributes
+                p = New Polygon
+                p.center = getValue("center", aOperands)
+                p.id = getValue("id", aOperands)
+                'Message("setting id of p : " & p.id)
+                p.radius = getValue("radius", aOperands)
+                p.shapestyle = getValue("shapeStyle", aOperands)
+                p.internalID = $iAgentCount
+                'Message("setting internal id of p : " & p.internalID)
+                
+                ' fill in the attribute array
+                atr = New String[]
+                atr.Add(p.id)
+                atr.Add(p.shapestyle)
+                atr.Add(p.radius)
+                atr.Add(p.center)
+                
+                ' insert it to the objects array
+                $aObjects.Add(p, Str(p.internalID))
+                
+                ' insert it in the table element, which itself is a table
+                $cElement = New Collection
+                $cElement.Add(p.id, "id")
+                'Message("setting id of celement : " & $cElement["id"])
+                $cElement.Add(p.center, "center")
+                $cElement.Add(p.radius, "radius")
+                $cElement.Add(p.shapestyle, "shapeStyle")
+                
+                'insert in the master table
+                $cTable.Add($cElement, p.internalID)
+                
+                ' insert polygon in Scene
+                insertPolygon(atr)
+            End Select
+          Case "Circle"
+          Case "Polyhedron"
+          Case "Sphere"
+          Case "Functional2D"
+          Case "Functional3D"
+          
+          Default
+              
+        End Select
+      Case "ApplySymbol"                                    ' SQL compatible call, then the Symbol 
+        sSymbolTarget = Mid(getValue("target", aOperands), 2, -1)
+        
+        sTargetID = getRegionID(sSymbolTarget, $cTable)     ' return the internal ID
+        sSymbol = getValue("symbol", aOperands)
+        sSymbolID = getValue("id", aOperands)
+        
+        $aObjects[sTargetID].symbol.Add(sSymbol, sSymbolID)
+        RenderSymbols(sTargetID)
+        
+      Case "ChooseSubset"                                   ' Application of Axiom of choice on the map
+      Case "TransformRegion"                                ' transformation of a region
+      Case "TransformSymbol"                                ' transform, but a symbol this time
+      Case "PlantTree"
+      Case "PropagateTree"  '
+      Case "ComputeTree"                                    ' Sql compliant query on the nodes, and the nodes must correspond to a set of regions using SQL compliant query, or differential
+      Case "TransformTree"
+      Case "Render"
+        finalizeEngine()
+    End Select
+  Next
+  
+  Shell "terminator --hidden --geometry 8x4 -e \"vtkpython /tmp/Temp.py \" "
+  $iAgentCount = 0
+End
+
+Public Sub btnClear_Click()
+
+  TextArea1.Text = ""
+
+End
+
+
+
