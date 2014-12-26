@@ -1,0 +1,30 @@
+Documentation
+=============
+
+
+Pahu uses a a finite set of Commands to create Maps and analyze them with graphs.
+
+Overview of Commands
+--------------------
+
+There are the following commands :
+
+	1. addRegion : Creaters an N (currently N <= 3 ) -dimensional region in the stack
+	2. applySymbol : applies a Symbol to the region. Currently, can apply an uniform color.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Roadmap
+-------
+
+1. add Text description as Symbol
