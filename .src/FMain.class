@@ -13,19 +13,21 @@ Private $aObjects As New Collection
 Private $cTable As New Collection
 Private $cElement As New Collection
 
+Private $iTxtActors As Integer                                                                               ' this is needed because we treat text as symbols, where as the graphics engine trests them as spaces
+
 Private Sub initiateEngine()
   
   Select $sEngine
     Case "vtkPython"
       $sInitCommands = ""
-      $sInitCommands = $sInitCommands & "import vtk" & Chr(10)                                               ' vtk added
+      $sInitCommands = $sInitCommands & "from vtk import *" & Chr(10)                                               ' vtk added
       $sInitCommands = $sInitCommands & "renderer = vtk.vtkRenderer()" & Chr(10)                             ' renderer added
       $sInitCommands = $sInitCommands & "renderWindow = vtk.vtkRenderWindow()" & Chr(10)                     ' window added
       $sInitCommands = $sInitCommands & "renderWindow.AddRenderer(renderer)" & Chr(10)                       ' renderer attached
       $sInitCommands = $sInitCommands & "renderWindowInteractor = vtk.vtkRenderWindowInteractor()" & Chr(10) ' interactor added
       $sInitCommands = $sInitCommands & "renderWindowInteractor.SetRenderWindow(renderWindow)" & Chr(10)     ' interactor connected to a windows
       $sInitCommands = $sInitCommands & "axes = vtk.vtkAxesActor()" & Chr(10)                                ' axes created
-      $sInitCommands = $sInitCommands & "renderer.AddActor(axes)" & Chr(10)                                   ' axes added
+      $sInitCommands = $sInitCommands & "renderer.AddActor(axes)" & Chr(10)                                  ' axes added
       $sOpCommands = $sInitCommands
      
   End Select
@@ -108,6 +110,12 @@ Private Sub RenderSymbols(id As String)
   
   Dim sSymbolStyle As String
   
+  
+  Dim sLabelLoc As String
+  Dim vObject As Variant
+  Dim sLabelCol As String
+  
+  
   For Each sSymbolCommand In $aObjects[id].symbol
     'strip off the whitespace
     sSymbolCommand = Trim(sSymbolCommand)
@@ -123,7 +131,31 @@ Private Sub RenderSymbols(id As String)
           Case "vtkPython"
             $sOpCommands = $sOpCommands & "actor" & id & ".GetProperty().SetColor(" & getValue("color", aSymbolAttributes) & ")" & Chr(10)
         End Select
-        
+      Case "label"
+        Select $sEngine 
+          Case "vtkPython"
+            vObject = $cTable[id]
+            sLabelLoc = vObject["center"]
+            ' sLabelCol = vObject["color"] <-- get color
+            $iTxtActors = $iTxtActors + 1
+            ' create new text
+            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & " = vtkTextSource()" & Chr(10)
+            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".SetText(\"" & getValue("text", aSymbolAttributes) & "\")" & Chr(10)
+            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".SetForegroundColor(" & getValue("color", aSymbolAttributes) & ")" & Chr(10)
+            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".BackingOn()" & Chr(10)
+            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".Update()" & Chr(10)
+            
+            $sOpCommands = $sOpCommands & "txtmapper" & Str($iTxtActors) & " = vtkPolyDataMapper()" & Chr(10)
+            $sOpCommands = $sOpCommands & "txtmapper" & Str($iTxtActors) & ".SetInputConnection(textSource" & Str($iTxtActors) & ".GetOutputPort())" & Chr(10)
+            
+            $sOpCommands = $sOpCommands & "txtactor" & Str($iTxtActors) & "= vtkActor()" & Chr(10)
+            $sOpCommands = $sOpCommands & "txtactor" & Str($iTxtActors) & ".SetMapper(txtmapper" & Str($iTxtActors) & ")" & Chr(10)
+            $sOpCommands = $sOpCommands & "txtactor" & Str($iTxtActors) & ".SetPosition(" & sLabelLoc & ")" & Chr(10)
+            
+            $sOpCommands = $sOpCommands & "renderer.AddActor(txtactor" & Str($iTxtActors) & ")" & Chr(10)
+
+            
+        End Select
     End Select
     
   Next
@@ -165,6 +197,7 @@ End
 
 Public Sub _new()
 $iAgentCount = 0
+$iTxtActors = 0
 End
 
 Public Sub Form_Open()
@@ -296,7 +329,10 @@ Public Sub btnExec_Click()
   Next
   
   Shell "terminator --hidden --geometry 8x4 -e \"vtkpython /tmp/Temp.py \" "
-  $iAgentCount = 0
+  $iAgentCount = 0                                          ' clear traces of previous definitions
+  $iTxtActors = 0
+  $aObjects = New Collection                                ' clear previously defined polygons themselves
+  
 End
 
 Public Sub btnClear_Click()
