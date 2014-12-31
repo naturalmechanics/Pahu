@@ -20,14 +20,33 @@ Private Sub initiateEngine()
   Select $sEngine
     Case "vtkPython"
       $sInitCommands = ""
-      $sInitCommands = $sInitCommands & "from vtk import *" & Chr(10)                                               ' vtk added
+      
+      $sInitCommands = $sInitCommands & "#!/usr/bin/env python" & Chr(10)                                    ' bang syntax
+      $sInitCommands = $sInitCommands & "import vtk" & Chr(10)                                               ' vtk added
+      
       $sInitCommands = $sInitCommands & "renderer = vtk.vtkRenderer()" & Chr(10)                             ' renderer added
-      $sInitCommands = $sInitCommands & "renderWindow = vtk.vtkRenderWindow()" & Chr(10)                     ' window added
+      $sInitCommands = $sInitCommands & "renderWindow = vtk.vtkRenderWindow()" & Chr(10)                     ' renderwindow added
       $sInitCommands = $sInitCommands & "renderWindow.AddRenderer(renderer)" & Chr(10)                       ' renderer attached
       $sInitCommands = $sInitCommands & "renderWindowInteractor = vtk.vtkRenderWindowInteractor()" & Chr(10) ' interactor added
-      $sInitCommands = $sInitCommands & "renderWindowInteractor.SetRenderWindow(renderWindow)" & Chr(10)     ' interactor connected to a windows
-      $sInitCommands = $sInitCommands & "axes = vtk.vtkAxesActor()" & Chr(10)                                ' axes created
-      $sInitCommands = $sInitCommands & "renderer.AddActor(axes)" & Chr(10)                                  ' axes added
+      $sInitCommands = $sInitCommands & "renderWindowInteractor.SetRenderWindow(renderWindow)" & Chr(10)     ' interactor attached to window
+      
+      $sInitCommands = $sInitCommands & "balloonRep = vtk.vtkBalloonRepresentation()" & Chr(10)              ' Balloon initiated
+      $sInitCommands = $sInitCommands & "balloonRep.SetBalloonLayoutToImageRight()" & Chr(10)                ' layout set
+      $sInitCommands = $sInitCommands & "balloonWidget = vtk.vtkBalloonWidget()" & Chr(10)                   ' widget init
+      $sInitCommands = $sInitCommands & "balloonWidget.SetInteractor(renderWindowInteractor)" & Chr(10)      ' interactor on
+      $sInitCommands = $sInitCommands & "balloonWidget.SetRepresentation(balloonRep)" & Chr(10)              ' representation on
+      $sInitCommands = $sInitCommands & "axes = vtk.vtkAxesActor()" & Chr(10)                                ' axes added
+      $sInitCommands = $sInitCommands & "renderer.AddActor(axes)" & Chr(10)                                  ' axes attached
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       $sOpCommands = $sInitCommands
      
   End Select
@@ -64,10 +83,11 @@ Private Sub finalizeEngine()
   
    Select $sEngine
       Case "vtkPython"
-        $sTotalCommands = $sTotalCommands & "renderer.ResetCamera()" & Chr(10)
+        '$sTotalCommands = $sTotalCommands & "renderer.ResetCamera()" & Chr(10)
         $sTotalCommands = $sTotalCommands & "renderWindow.Render()" & Chr(10)
+        $sTotalCommands = $sTotalCommands & "balloonWidget.EnabledOn()" & Chr(10)
         $sTotalCommands = $sTotalCommands & "renderWindowInteractor.Start()" & Chr(10)
-
+        $sTotalCommands = $sTotalCommands & "renderWindowInteractor.Initialize()" & Chr(10)
    End Select
   File.Save("/tmp/Temp.py", "")
   File.Save("/tmp/Temp.py", $sTotalCommands)
@@ -139,20 +159,10 @@ Private Sub RenderSymbols(id As String)
             ' sLabelCol = vObject["color"] <-- get color
             $iTxtActors = $iTxtActors + 1
             ' create new text
-            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & " = vtkTextSource()" & Chr(10)
-            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".SetText(\"" & getValue("text", aSymbolAttributes) & "\")" & Chr(10)
-            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".SetForegroundColor(" & getValue("color", aSymbolAttributes) & ")" & Chr(10)
-            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".BackingOn()" & Chr(10)
-            $sOpCommands = $sOpCommands & "textSource" & Str($iTxtActors) & ".Update()" & Chr(10)
+           
             
-            $sOpCommands = $sOpCommands & "txtmapper" & Str($iTxtActors) & " = vtkPolyDataMapper()" & Chr(10)
-            $sOpCommands = $sOpCommands & "txtmapper" & Str($iTxtActors) & ".SetInputConnection(textSource" & Str($iTxtActors) & ".GetOutputPort())" & Chr(10)
             
-            $sOpCommands = $sOpCommands & "txtactor" & Str($iTxtActors) & "= vtkActor()" & Chr(10)
-            $sOpCommands = $sOpCommands & "txtactor" & Str($iTxtActors) & ".SetMapper(txtmapper" & Str($iTxtActors) & ")" & Chr(10)
-            $sOpCommands = $sOpCommands & "txtactor" & Str($iTxtActors) & ".SetPosition(" & sLabelLoc & ")" & Chr(10)
-            
-            $sOpCommands = $sOpCommands & "renderer.AddActor(txtactor" & Str($iTxtActors) & ")" & Chr(10)
+             $sOpCommands = $sOpCommands & "balloonWidget.AddBalloon(actor" & id & ",\" " & getValue("text", aSymbolAttributes) & " \")" & Chr(10)
 
             
         End Select
